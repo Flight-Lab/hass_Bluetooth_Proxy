@@ -1,110 +1,77 @@
-"""Bluetooth scanner implementation for Companion Bluetooth Proxy."""
+"""Sensor platform for Companion Bluetooth Proxy integration."""
 from __future__ import annotations
 
-import base64
-from collections.abc import Callable
 import logging
-import time
 from typing import Any
 
-from bluetooth_data_tools import monotonic_time_coarse
-
-from homeassistant.components import bluetooth
+from homeassistant.components import sensor
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import EntityCategory
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
+
+from .constants import DOMAIN
+from .scanner import CompanionBLEScanner
 
 _LOGGER = logging.getLogger(__name__)
 
-class CompanionBLEScanner(bluetooth.BaseHaRemoteScanner):
-    """Scanner that processes BLE advertisements from companion app."""
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
-        """Initialize the BLE scanner."""
-        # Create connector that doesn't allow direct connections
-        # (companion app handles connections, not Home Assistant)
-        self._connector = bluetooth.HaBluetoothConnector(
-            client=None,
-            source=entry.entry_id,
-            can_connect=lambda: False
-        )
-        super().__init__(entry.entry_id, entry.title, self._connector, False)
-        self._sensors: list = []
-        self._unload_callback: Callable[[], None] | None = None
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up Companion Bluetooth Proxy sensor entities."""
+    scanner: CompanionBLEScanner = entry.runtime_data
+    async_add_entities([LastUpdateSensor(scanner, entry)])
 
-    async def async_process_json(self, data: dict[str, Any]) -> None:
-        """Process BLE advertisement data received from companion app.
+
+class LastUpdateSensor(sensor.SensorEntity):
+    """Sensor that tracks the last time BLE data was received."""
+
+    _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_device_class = sensor.SensorDeviceClass.TIMESTAMP
+
+    def __init__(self, scanner: CompanionBLEScanner, entry: ConfigEntry) -> None:
+        """Initialize the Last Update sensor."""
+        # Entity identification
+        self._attr_unique_id = f"bt_proxy_{entry.entry_id}_last_update"
+        self._attr_name = "Last Update"
         
-        Converts the JSON data format from the companion app into the format
-        expected by Home Assistant's Bluetooth integration.
+        # Register this sensor with the scanner so it gets notified of updates
+        scanner._sensors.append(self)
+        
+        # Store sensor state
+        self._value: dt_util.dt.datetime | None = None
+        
+        # Device information
+        self._entry_id = entry.entry_id
+        self._device_name = entry.title
+
+    async def async_on_scanner_update(self, scanner: CompanionBLEScanner) -> None:
+        """Handle scanner update notification.
+        
+        Called by the scanner when new BLE advertisement data is processed.
         """
-        # Decode base64-encoded service data
-        service_data = {
-            key: base64.b64decode(value)
-            for key, value in data.get("service_data", {}).items()
+        # Update timestamp to current time
+        self._value = dt_util.now()
+        
+        # Notify Home Assistant that state has changed
+        self.async_write_ha_state()
+
+    @property
+    def native_value(self) -> dt_util.dt.datetime | None:
+        """Return the current sensor value (timestamp of last update)."""
+        return self._value
+
+    @property
+    def device_info(self) -> dict[str, Any]:
+        """Return device information for grouping entities."""
+        return {
+            "identifiers": {
+                (DOMAIN, self._entry_id),
+            },
+            "name": self._device_name,
         }
-        
-        # Decode base64-encoded manufacturer data (keys are integer company IDs)
-        manufacturer_data = {
-            int(key, 10): base64.b64decode(value)
-            for key, value in data.get("manufacturer_data", {}).items()
-        }
-        
-        _LOGGER.debug(
-            "Processing BLE advertisement: address=%s, rssi=%s, service_data=%s, manufacturer_data=%s",
-            data.get("address"),
-            data.get("rssi"),
-            service_data,
-            manufacturer_data,
-        )
-        
-        # Convert received timestamp to monotonic time for HA's Bluetooth system
-        # The companion app sends Unix timestamps, but HA uses monotonic time
-        current_monotonic = monotonic_time_coarse()
-        received_timestamp_seconds = data.get("timestamp", 0) / 1000.0
-        current_time_seconds = time.time()
-        time_offset = current_time_seconds - received_timestamp_seconds
-        advertisement_monotonic_time = current_monotonic - time_offset
-        
-        # Pass advertisement to HA's Bluetooth integration
-        self._async_on_advertisement(
-            address=data["address"],
-            rssi=data.get("rssi", 0),
-            local_name=data.get("name"),
-            service_uuids=data.get("service_uuids", []),
-            service_data=service_data,
-            manufacturer_data=manufacturer_data,
-            tx_power=data.get("tx_power", 0),
-            details={},  # Empty dict, not dict() - more Pythonic
-            advertisement_monotonic_time=advertisement_monotonic_time,
-        )
-
-    async def async_update_sensors(self) -> None:
-        """Notify all sensor entities that new data is available.
-        
-        This triggers sensors like "Last Update" to refresh their state
-        after processing BLE advertisements.
-        """
-        for sensor in self._sensors:
-            await sensor.async_on_scanner_update(self)
-
-    async def async_load(self, hass: HomeAssistant) -> None:
-        """Register this scanner with Home Assistant's Bluetooth system.
-        
-        Args:
-            hass: Home Assistant instance
-        """
-        # Register scanner with priority 0 (default priority)
-        # Store the unload callback for cleanup later
-        self._unload_callback: Callable[[], None] = bluetooth.async_register_scanner(
-            hass, self, 0
-        )
-
-
-    async def async_unload(self, hass: HomeAssistant) -> None:
-        """Unregister this scanner from Home Assistant's Bluetooth system."""
-        # Unregister the scanner from HA's Bluetooth integration
-        if self._unload_callback:
-            self._unload_callback()
-        
-        # Clear sensor references
-        self._sensors = []
