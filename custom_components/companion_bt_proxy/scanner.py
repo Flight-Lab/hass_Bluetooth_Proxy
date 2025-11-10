@@ -33,7 +33,7 @@ class CompanionBLEScanner(bluetooth.BaseHaRemoteScanner):
             await s.async_on_scanner_update(self)
 
     async def async_load(self, hass):
-        self._unload_callback = bluetooth.async_register_scanner(hass, self, False)
+        self._unload_callback = bluetooth.async_register_scanner(hass, self, 0)
 
     async def async_unload(self, hass):
         self._unload_callback()
