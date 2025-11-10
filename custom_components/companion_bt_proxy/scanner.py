@@ -1,7 +1,9 @@
 from homeassistant.components import bluetooth
+from bluetooth_data_tools import monotonic_time_coarse
 
 import logging
 import base64
+import time
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -16,6 +18,14 @@ class CompanionBLEScanner(bluetooth.BaseHaRemoteScanner):
         service_data = {key: base64.b64decode(value) for (key, value) in data.get("service_data", {}).items()}
         m_data = {int(key, 10): base64.b64decode(value) for (key, value) in data.get("manufacturer_data", {}).items()}
         _LOGGER.debug(f"async_process_json: {data}, {service_data}, {m_data}")
+        
+        # Convert received timestamp to monotonic time
+        current_monotonic = monotonic_time_coarse()
+        received_timestamp_seconds = data.get("timestamp", 0) / 1000
+        current_time_seconds = time.time()
+        time_offset = current_time_seconds - received_timestamp_seconds
+        advertisement_monotonic_time = current_monotonic - time_offset
+        
         self._async_on_advertisement(
             address=data["address"],
             rssi=data.get("rssi", 0),
@@ -25,7 +35,7 @@ class CompanionBLEScanner(bluetooth.BaseHaRemoteScanner):
             manufacturer_data=m_data,
             tx_power=data.get("tx_power", 0),
             details=dict(),
-            advertisement_monotonic_time=data.get("timestamp", 0) / 1000, # Milliseconds to fractional seconds
+            advertisement_monotonic_time=advertisement_monotonic_time,
         )
 
     async def async_update_sensors(self):
