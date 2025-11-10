@@ -1,31 +1,44 @@
-from homeassistant.components import bluetooth
-from bluetooth_data_tools import monotonic_time_coarse
+"""Bluetooth scanner implementation for Companion Bluetooth Proxy."""
+from __future__ import annotations
 
-import logging
 import base64
+import logging
 import time
 
+from bluetooth_data_tools import monotonic_time_coarse
+
+from homeassistant.components import bluetooth
+
 _LOGGER = logging.getLogger(__name__)
+
 
 class CompanionBLEScanner(bluetooth.BaseHaRemoteScanner):
 
     def __init__(self, hass, entry):
-        self._connector = bluetooth.HaBluetoothConnector(client=None, source=entry.entry_id, can_connect=lambda: False)
+        self._connector = bluetooth.HaBluetoothConnector(
+            client=None, source=entry.entry_id, can_connect=lambda: False
+        )
         super().__init__(entry.entry_id, entry.title, self._connector, False)
         self._sensors = []
 
     async def async_process_json(self, data: dict):
-        service_data = {key: base64.b64decode(value) for (key, value) in data.get("service_data", {}).items()}
-        m_data = {int(key, 10): base64.b64decode(value) for (key, value) in data.get("manufacturer_data", {}).items()}
+        service_data = {
+            key: base64.b64decode(value)
+            for (key, value) in data.get("service_data", {}).items()
+        }
+        m_data = {
+            int(key, 10): base64.b64decode(value)
+            for (key, value) in data.get("manufacturer_data", {}).items()
+        }
         _LOGGER.debug(f"async_process_json: {data}, {service_data}, {m_data}")
-        
+
         # Convert received timestamp to monotonic time
         current_monotonic = monotonic_time_coarse()
         received_timestamp_seconds = data.get("timestamp", 0) / 1000
         current_time_seconds = time.time()
         time_offset = current_time_seconds - received_timestamp_seconds
         advertisement_monotonic_time = current_monotonic - time_offset
-        
+
         self._async_on_advertisement(
             address=data["address"],
             rssi=data.get("rssi", 0),
