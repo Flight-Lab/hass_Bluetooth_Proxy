@@ -1,15 +1,21 @@
+"""Sensor platform for Companion Bluetooth Proxy integration."""
+from __future__ import annotations
+
+import logging
+
 from homeassistant.components import sensor
-from homeassistant.util import dt
 from homeassistant.helpers.entity import EntityCategory
+from homeassistant.util import dt
 
 from .constants import DOMAIN
 
-import logging
 _LOGGER = logging.getLogger(__name__)
+
 
 async def async_setup_entry(hass, entry, async_setup_entities):
     scanner = entry.runtime_data
     async_setup_entities([_LastUpdate(scanner, entry)])
+
 
 class _LastUpdate(sensor.SensorEntity):
 
@@ -40,7 +46,7 @@ class _LastUpdate(sensor.SensorEntity):
     def device_info(self):
         return {
             "identifiers": {
-                ("entry_id", self._entry_id), 
+                ("entry_id", self._entry_id),
             },
             "name": self._device_name,
         }
