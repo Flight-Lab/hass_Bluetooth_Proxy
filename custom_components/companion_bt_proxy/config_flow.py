@@ -9,7 +9,7 @@ from homeassistant import config_entries
 from homeassistant.components import webhook
 from homeassistant.helpers.selector import selector
 
-from .constants import DOMAIN
+from .constants import CONF_WEBHOOK, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ def _create_schema(hass):
     schema = vol.Schema(
         {
             vol.Required("name"): selector({"text": {}}),
-            vol.Required("webhook", default=hook_id): selector({"text": {}}),
+            vol.Required(CONF_WEBHOOK, default=hook_id): selector({"text": {}}),
             vol.Optional("webhook_url", default=hook_url): selector(
                 {"text": {"type": "url"}}
             ),
@@ -49,6 +49,6 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 title=user_input["name"],
                 options={},
                 data={
-                    "webhook": user_input["webhook"],
+                    CONF_WEBHOOK: user_input[CONF_WEBHOOK],
                 },
             )

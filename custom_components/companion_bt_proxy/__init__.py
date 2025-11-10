@@ -10,7 +10,7 @@ from homeassistant.components import webhook
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.typing import ConfigType
 
-from .constants import DOMAIN, PLATFORMS
+from .constants import CONF_WEBHOOK, DOMAIN, PLATFORMS
 from .scanner import CompanionBLEScanner
 
 _LOGGER = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry):
     data = entry.as_dict()["data"]
-    hook_id = data["webhook"]
+    hook_id = data[CONF_WEBHOOK]
     hass.data[DOMAIN]["webhooks"][hook_id] = entry.entry_id
     scanner = CompanionBLEScanner(hass, entry)
     await scanner.async_load(hass)
@@ -66,7 +66,7 @@ async def async_setup_entry(hass: HomeAssistant, entry):
 async def async_unload_entry(hass: HomeAssistant, entry):
     scanner = entry.runtime_data
     data = entry.as_dict()["data"]
-    hook_id = data["webhook"]
+    hook_id = data[CONF_WEBHOOK]
     webhook.async_unregister(hass, hook_id)
 
     await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
