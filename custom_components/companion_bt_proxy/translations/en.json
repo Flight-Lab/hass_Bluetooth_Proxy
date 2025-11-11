@@ -2,15 +2,29 @@
   "config": {
     "step": {
       "user": {
-        "description": "New Integration",
+        "title": "Set up Companion Bluetooth Proxy",
+        "description": "Configure a new Bluetooth proxy device. The companion app on your Android device will scan for BLE devices and send the data to Home Assistant.",
         "data": {
-          "name": "Name",
+          "name": "Device Name",
           "webhook": "Webhook ID",
-          "webhook_url": "Webhook URL (Copy to your Companion App)"
+          "webhook_url": "Webhook URL"
+        },
+        "data_description": {
+          "name": "A friendly name for this Bluetooth proxy",
+          "webhook": "Unique identifier for the webhook (auto-generated)",
+          "webhook_url": "Copy this URL and paste it into your companion app settings"
         }
       }
     },
-    "error": {
+    "abort": {
+      "already_configured": "A device with this name is already configured"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "last_update": {
+        "name": "Last Update"
+      }
     }
   }
 }
