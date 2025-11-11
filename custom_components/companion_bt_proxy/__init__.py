@@ -43,8 +43,10 @@ async def _async_handle_webhook(
     webhooks = hass.data[DOMAIN]["webhooks"]
     scanners = hass.data[DOMAIN]["scanners"]
 
-    if entry_id := webhooks.get(webhook_id):
-        if scanner := scanners.get(entry_id):
+    entry_id = webhooks.get(webhook_id)
+    if entry_id:
+        scanner = scanners.get(entry_id)
+        if scanner:
             # Process each BLE advertisement in the message
             for item in message:
                 await scanner.async_process_json(item)
@@ -112,7 +114,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Clean up scanner
         await scanner.async_unload(hass)
 
-        # Remove from data storage
+        # Remove from data storage (use defaults to prevent KeyErrors)
         hass.data[DOMAIN]["webhooks"].pop(hook_id, None)
         hass.data[DOMAIN]["scanners"].pop(entry.entry_id, None)
         entry.runtime_data = None

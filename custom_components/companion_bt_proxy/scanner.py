@@ -55,7 +55,7 @@ class CompanionBLEScanner(bluetooth.BaseHaRemoteScanner):
         )
 
         # Convert received timestamp to monotonic time for HA's Bluetooth system
-        # The companion app sends Unix timestamps, but HA uses monotonic time
+        # The companion app sends Unix timestamps (milliseconds), but HA uses monotonic time
         current_monotonic = monotonic_time_coarse()
         received_timestamp_seconds = data.get("timestamp", 0) / 1000.0
         current_time_seconds = time.time()
@@ -87,6 +87,9 @@ class CompanionBLEScanner(bluetooth.BaseHaRemoteScanner):
 
     async def async_unload(self, hass: HomeAssistant) -> None:
         """Unregister scanner and clear references."""
+        # Only call callback if it was set
         if self._unload_callback:
             self._unload_callback()
+
+        # Clear sensor references
         self._sensors = []
