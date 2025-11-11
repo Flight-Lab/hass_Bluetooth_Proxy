@@ -10,7 +10,11 @@ from homeassistant import config_entries
 from homeassistant.components import webhook
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
-from homeassistant.helpers.selector import selector
+from homeassistant.helpers.selector import (
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
+)
 
 from .constants import CONF_WEBHOOK, DOMAIN
 
@@ -29,10 +33,17 @@ def _create_schema(hass: HomeAssistant) -> vol.Schema:
     hook_id, hook_url = _create_webhook(hass)
     schema = vol.Schema(
         {
-            vol.Required("name"): selector({"text": {}}),
-            vol.Required(CONF_WEBHOOK, default=hook_id): selector({"text": {}}),
-            vol.Optional("webhook_url", default=hook_url): selector(
-                {"text": {"type": "url"}}
+            vol.Required("name"): TextSelector(
+                TextSelectorConfig(type=TextSelectorType.TEXT)
+            ),
+            vol.Required(CONF_WEBHOOK, default=hook_id): TextSelector(
+                TextSelectorConfig(type=TextSelectorType.TEXT)
+            ),
+            vol.Optional("webhook_url", default=hook_url): TextSelector(
+                TextSelectorConfig(
+                    type=TextSelectorType.URL,
+                    multiline=False,
+                )
             ),
         }
     )
@@ -52,7 +63,7 @@ class ConfigFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             _LOGGER.debug("Processing config flow input: %s", user_input)
-            
+
             # Set unique ID based on the proxy name to prevent duplicates
             await self.async_set_unique_id(user_input["name"])
             self._abort_if_unique_id_configured()
