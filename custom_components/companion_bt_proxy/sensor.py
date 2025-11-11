@@ -24,20 +24,21 @@ async def async_setup_entry(
 ) -> None:
     """Set up sensor entities from a config entry."""
     scanner: CompanionBLEScanner = entry.runtime_data
-    async_add_entities([_LastUpdate(scanner, entry)])
+    async_add_entities([LastUpdateSensor(scanner, entry)])
 
 
-class _LastUpdate(sensor.SensorEntity):
+class LastUpdateSensor(sensor.SensorEntity):
     """Sensor that tracks the last time BLE data was received."""
+
+    _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_device_class = sensor.SensorDeviceClass.TIMESTAMP
 
     def __init__(self, scanner: CompanionBLEScanner, entry: ConfigEntry) -> None:
         """Initialize the Last Update sensor."""
-        self._attr_has_entity_name = True
+        # Entity identification
         self._attr_unique_id = f"bt_proxy_{entry.entry_id}_last_update"
         self._attr_name = "Last Update"
-
-        self._attr_entity_category = EntityCategory.DIAGNOSTIC
-        self._attr_device_class = sensor.SensorDeviceClass.TIMESTAMP
 
         # Register this sensor with the scanner for update notifications
         scanner._sensors.append(self)
@@ -64,7 +65,7 @@ class _LastUpdate(sensor.SensorEntity):
         """Return device information for grouping entities."""
         return {
             "identifiers": {
-                ("entry_id", self._entry_id),
+                (DOMAIN, self._entry_id),
             },
             "name": self._device_name,
         }
