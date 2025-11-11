@@ -10,7 +10,6 @@ import voluptuous as vol
 from homeassistant.components import webhook
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.typing import ConfigType
 
 from .constants import CONF_WEBHOOK, DOMAIN, PLATFORMS
@@ -99,31 +98,28 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Companion Bluetooth Proxy from a config entry."""
-    # Migrate old device identifiers to new format
-    await _async_migrate_device_identifiers(hass, entry)
-
     # Extract webhook ID from config entry
     hook_id = entry.data[CONF_WEBHOOK]
-
+    
     # Create and initialize the BLE scanner
     scanner = CompanionBLEScanner(hass, entry)
     await scanner.async_load(hass)
-
+    
     # Store scanner in both entry runtime_data and hass.data
     entry.runtime_data = scanner
     hass.data[DOMAIN]["scanners"][entry.entry_id] = scanner
     hass.data[DOMAIN]["webhooks"][hook_id] = entry.entry_id
-
+    
     # Register webhook endpoint for receiving BLE data
     webhook.async_register(
         hass, DOMAIN, "Companion BT Proxy", hook_id, _async_handle_webhook
     )
-
+    
     _LOGGER.debug("Config entry setup complete. Webhook ID: %s", hook_id)
-
+    
     # Set up platform entities (sensors)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
+    
     return True
 
 
