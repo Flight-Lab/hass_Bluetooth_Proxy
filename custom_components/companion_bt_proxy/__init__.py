@@ -10,6 +10,7 @@ import voluptuous as vol
 from homeassistant.components import webhook
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.typing import ConfigType
 
 from .constants import CONF_WEBHOOK, DOMAIN, PLATFORMS
@@ -61,6 +62,31 @@ async def _async_handle_webhook(
     return json_response([])
 
 
+async def _async_migrate_device_identifiers(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> None:
+    """Migrate old device identifiers to new format.
+
+    Removes devices using the old ("entry_id", entry_id) identifier format
+    and allows them to be recreated with the correct (DOMAIN, entry_id) format.
+
+    This migration can be removed in a future version after sufficient adoption.
+    """
+    device_registry = dr.async_get(hass)
+
+    # Look for device with old identifier format
+    old_device = device_registry.async_get_device(
+        identifiers={("entry_id", entry.entry_id)}
+    )
+
+    if old_device:
+        _LOGGER.info(
+            "Migrating device identifier format for '%s' - removing old device",
+            old_device.name,
+        )
+        device_registry.async_remove_device(old_device.id)
+
+
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the Companion Bluetooth Proxy component."""
     # Initialize storage for scanners and webhook mappings
@@ -73,6 +99,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Companion Bluetooth Proxy from a config entry."""
+    # Migrate old device identifiers to new format
+    await _async_migrate_device_identifiers(hass, entry)
+
     # Extract webhook ID from config entry
     hook_id = entry.data[CONF_WEBHOOK]
 
